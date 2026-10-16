@@ -1,0 +1,19 @@
+# Schlüssel gehören nie ins Repository
+*.env
+.env*
+
+# Android
+Android/.gradle/
+Android/**/build/
+Android/local.properties
+Android/.idea/
+*.iml
+
+# Windows / Python
+Windows/.venv/
+Windows/dist/
+Windows/build/
+Windows/Output/
+__pycache__/
+*.pyc
+.DS_Store

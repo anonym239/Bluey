@@ -1,0 +1,15 @@
+PySide6==6.8.1
+zeroconf==0.147.0
+mss==10.0.0
+Pillow==11.3.0
+numpy==2.2.6
+faster-whisper==1.1.1
+keyring==25.6.0; sys_platform == 'win32'
+uiautomation==2.0.28; sys_platform == 'win32'
+winrt-runtime==2.3.0; sys_platform == 'win32'
+winrt-Windows.Foundation==2.3.0; sys_platform == 'win32'
+winrt-Windows.Foundation.Collections==2.3.0; sys_platform == 'win32'
+winrt-Windows.Globalization==2.3.0; sys_platform == 'win32'
+winrt-Windows.Graphics.Imaging==2.3.0; sys_platform == 'win32'
+winrt-Windows.Media.Ocr==2.3.0; sys_platform == 'win32'
+winrt-Windows.Storage.Streams==2.3.0; sys_platform == 'win32'

@@ -1,0 +1,109 @@
+name: Bluey bauen (Android-APK und Windows-EXE)
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  android:
+    name: Android-APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Bauen und testen
+        working-directory: Android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease testDebugUnitTest --no-daemon
+          cp app/build/outputs/apk/release/app-release.apk ../Bluey.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bluey-Android
+          path: Bluey.apk
+
+  windows:
+    name: Windows-EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: Windows/requirements.txt
+      - name: Pakete installieren
+        working-directory: Windows
+        run: python -m pip install -r requirements.txt pyinstaller==6.15.0
+      - name: Tests
+        working-directory: Windows
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m unittest discover -s tests -t . -v
+      - name: Bluey.exe bauen
+        working-directory: Windows
+        run: python -m PyInstaller --noconfirm bluey.spec
+      - name: Selbsttest der EXE
+        working-directory: Windows
+        shell: pwsh
+        run: |
+          $test = Start-Process dist\Bluey\Bluey.exe -ArgumentList "--selftest" -Wait -PassThru
+          Get-Content "$env:APPDATA\Bluey\selftest.txt"
+          if ($test.ExitCode -ne 0) { throw "Selbsttest fehlgeschlagen" }
+      - name: Installer bauen (Bluey-Setup.exe)
+        working-directory: Windows
+        shell: pwsh
+        env:
+          BLUEY_VERSION: 1.0.${{ github.run_number }}
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          & $iscc installer.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup fehlgeschlagen" }
+          Compress-Archive -Path dist\Bluey -DestinationPath ..\Bluey-Windows-portable.zip
+          Copy-Item Output\Bluey-Setup.exe ..\Bluey-Setup.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Bluey-Windows
+          path: |
+            Bluey-Setup.exe
+            Bluey-Windows-portable.zip
+
+  release:
+    name: Download-Seite (GitHub Release)
+    needs: [android, windows]
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bluey-${{ github.run_number }}
+          name: Bluey ${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: |
+            **Windows:** `Bluey-Setup.exe` herunterladen und installieren (oder `Bluey-Windows-portable.zip` entpacken und `Bluey.exe` starten).
+            Für die KI vorher [Ollama](https://ollama.com/download) installieren; Bluey lädt das Modell beim ersten Start.
+
+            **Android:** `Bluey.apk` aufs Handy laden und öffnen (Installation aus unbekannten Quellen erlauben).
+
+            Anleitung: siehe README im Repository.
+          files: |
+            out/Bluey.apk
+            out/Bluey-Setup.exe
+            out/Bluey-Windows-portable.zip
