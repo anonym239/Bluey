@@ -90,12 +90,18 @@ def pull(model, progress=None):
     _capabilities.pop(model, None)
 
 
-def chat(messages, model=None, tools=None, on_delta=None, cancelled=lambda: False, num_ctx=8192):
-    """Ein Chat-Aufruf mit Streaming. Gibt (Text, Werkzeugaufrufe) zurück; `on_delta(bisheriger Text)` beim Streamen."""
+def chat(messages, model=None, tools=None, on_delta=None, cancelled=lambda: False, num_ctx=8192, format=None,
+         temperature=0.6, think=None):
+    """Ein Chat-Aufruf mit Streaming. Gibt (Text, Werkzeugaufrufe) zurück; `on_delta(bisheriger Text)` beim Streamen.
+    `format`: ein JSON-Schema, an das sich das Modell halten muss (strukturierte Ausgabe)."""
     body = {"model": model or settings.ollama_model, "messages": messages, "stream": True,
-            "options": {"num_ctx": num_ctx, "temperature": 0.6}, "keep_alive": "30m"}
+            "options": {"num_ctx": num_ctx, "temperature": temperature}, "keep_alive": "30m"}
     if tools:
         body["tools"] = tools
+    if format:
+        body["format"] = format
+    if think is not None:
+        body["think"] = think
     response = _post("/api/chat", body, stream=True)
     text, calls = "", []
     with response:

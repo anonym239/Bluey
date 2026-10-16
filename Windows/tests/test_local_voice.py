@@ -90,90 +90,101 @@ class LocalVoiceTest(unittest.TestCase):
             time.sleep(0.02)
         self.fail(f"kein {kind}-Ereignis: {phone.events}")
 
-    def test_hold_ask_with_text_tools(self):
-        replies = iter([('TOOL {"name": "look_at_screen", "arguments": {}}', []),
-                        ('TOOL {"name": "point_at_spot", "arguments": {"x": 500, "y": 500}}', []),
-                        ("Das ist dein Editor.", [])])
+    def run_voice(self, replies, words, caps=frozenset({"completion", "vision"})):
+        replies = iter(replies)
         seen = []
 
-        def chat(messages, model=None, tools=None, on_delta=None, cancelled=None, num_ctx=None):
+        def chat(messages, model=None, tools=None, on_delta=None, cancelled=None, num_ctx=None, format=None,
+                 temperature=None, think=None):
             if not messages:
                 return "", []
+            self.assertIsNotNone(format)  # immer strukturierte JSON-Antworten
             seen.append([dict(m) for m in messages])
-            text, calls = next(replies)
-            if on_delta:
-                on_delta(text)
-            return text, calls
+            return json.dumps(next(replies)), []
 
-        words = iter(["Der Film gestern war gut.", "Was ist das hier?"])
-        with mock.patch.object(ollama, "chat", side_effect=chat), \
-                mock.patch.object(ollama, "capabilities", return_value={"completion", "vision"}), \
-                mock.patch.object(stt, "transcribe_pcm", side_effect=lambda pcm, rate: next(words)), \
-                mock.patch.object(stt, "preload"):
-            host, phone = FakeHost(), FakePhone()
-            voice = LocalVoice(host)
-            voice.command("start", phone)
-            send = lambda pcm: voice.audio(base64.b64encode(pcm).decode(), phone)
-            send(tone(0.5, False) + tone(1.0) + tone(1.0, False))  # mitgehört
-            self.wait(voice, phone, "words")
-            voice.command("hold", phone)
-            send(tone(0.3, False) + tone(1.0))
-            voice.command("ask", phone)
-            self.wait(voice, phone, "done")
+        words = iter(words)
+        patches = [mock.patch.object(ollama, "chat", side_effect=chat),
+                   mock.patch.object(ollama, "capabilities", return_value=set(caps)),
+                   mock.patch.object(stt, "transcribe_pcm", side_effect=lambda pcm, rate: next(words)),
+                   mock.patch.object(stt, "preload")]
+        for p in patches:
+            p.start()
+        self.addCleanup(lambda: [p.stop() for p in patches])
+        host, phone = FakeHost(), FakePhone()
+        voice = LocalVoice(host)
+        voice.command("start", phone)
+        return voice, host, phone, seen
+
+    def test_hold_ask_answers_and_uses_screen_tools(self):
+        voice, host, phone, seen = self.run_voice(
+            [{"say": "", "tool": "point_at_spot", "arguments": {"x": 500, "y": 500}},
+             {"say": "Das ist dein Editor.", "tool": "none", "arguments": {}}],
+            ["Der Film gestern war gut.", "Was ist das hier?"])
+        send = lambda pcm: voice.audio(base64.b64encode(pcm).decode(), phone)
+        send(tone(0.5, False) + tone(1.0) + tone(1.0, False))  # mitgehört
+        self.wait(voice, phone, "words")
+        voice.command("hold", phone)
+        send(tone(0.3, False) + tone(1.0))
+        voice.command("ask", phone)
+        self.wait(voice, phone, "done")
         done = [e for e in phone.events if e["type"] == "done"][0]
         self.assertEqual(done["text"], "Das ist dein Editor.")
+        # Die Frage klingt nach Bildschirm: er schaut vorher selbst hin, dann zeigt er.
         self.assertEqual([t[0] for t in host.tools], ["look_at_screen", "point_at_spot"])
         asked = [e for e in phone.events if e["type"] == "words" and e["asked"]]
         self.assertEqual(asked[0]["text"], "Was ist das hier?")
-        heard = [e for e in phone.events if e["type"] == "words" and not e["asked"]]
-        self.assertEqual(heard[0]["text"], "Der Film gestern war gut.")
-        question = seen[0][-1]["content"]
-        self.assertIn("Der Film gestern war gut.", question)
-        self.assertIn("Frage des Nutzers: Was ist das hier?", question)
-        self.assertIn("TOOL", seen[0][0]["content"])  # Textprotokoll, weil das Modell keine Werkzeuge kann
-        self.assertTrue(any("images" in m for m in seen[1]))  # das Bildschirmfoto geht an ein Modell mit Augen
+        user = seen[0][-1]
+        self.assertIn("Der Film gestern war gut.", user["content"])
+        self.assertIn("Frage des Nutzers: Was ist das hier?", user["content"])
+        self.assertIn("images", user)  # das Bildschirmfoto geht an ein Modell mit Augen
+        self.assertIn("JSON", seen[0][0]["content"])
         self.assertEqual(host.captions[-1], ("Das ist dein Editor.", True))
 
-    def test_native_tools_and_sleep(self):
-        replies = iter([("Tschüss!", [{"name": "go_to_sleep", "arguments": {}}]), ("", [])])
+    def test_plain_question_gets_a_real_answer_without_tools(self):
+        voice, host, phone, seen = self.run_voice(
+            [{"say": "Canberra.", "tool": "none", "arguments": {}}], ["Was ist die Hauptstadt von Australien?"])
+        voice.command("hold", phone)
+        voice.audio(base64.b64encode(tone(1.2)).decode(), phone)
+        voice.command("ask", phone)
+        self.wait(voice, phone, "done")
+        self.assertEqual([e for e in phone.events if e["type"] == "done"][0]["text"], "Canberra.")
+        self.assertEqual(host.tools, [])
 
-        def chat(messages, model=None, tools=None, on_delta=None, cancelled=None, num_ctx=None):
-            if not messages:
-                return "", []
-            self.assertTrue(tools)
-            text, calls = next(replies)
-            if on_delta and text:
-                on_delta(text)
-            return text, calls
+    def test_short_quiet_press_is_explained(self):
+        voice, host, phone, seen = self.run_voice([], [])
+        voice.command("hold", phone)
+        voice.command("ask", phone)
+        self.wait(voice, phone, "done")
+        self.assertIn("nicht verstanden", [e for e in phone.events if e["type"] == "done"][0]["text"])
+        self.assertEqual(seen, [])
 
-        with mock.patch.object(ollama, "chat", side_effect=chat), \
-                mock.patch.object(ollama, "capabilities", return_value={"completion", "tools"}), \
-                mock.patch.object(stt, "transcribe_pcm", return_value="Gute Nacht"), \
-                mock.patch.object(stt, "preload"):
-            host, phone = FakeHost(), FakePhone()
-            voice = LocalVoice(host)
-            voice.command("start", phone)
-            voice.command("hold", phone)
-            voice.audio(base64.b64encode(tone(0.3, False) + tone(0.8)).decode(), phone)
-            voice.command("ask", phone)
-            self.wait(voice, phone, "done")
-        done = [e for e in phone.events if e["type"] == "done"][0]
-        self.assertEqual(done, {"type": "done", "text": "Tschüss!", "sleep": True})
+    def test_sleep_and_typed_questions(self):
+        voice, host, phone, seen = self.run_voice([{"say": "Tschüss!", "tool": "go_to_sleep", "arguments": {}}], [])
+        answers = []
+        voice.on_answer.append(lambda q, a: answers.append((q, a)))
+        voice.ask_text("Gute Nacht")
+        self.wait(voice, phone, "done")
+        self.assertEqual([e for e in phone.events if e["type"] == "done"][0], {"type": "done", "text": "Tschüss!", "sleep": True})
+        self.assertEqual(answers, [("Gute Nacht", "Tschüss!")])
 
     def test_missing_model_is_explained(self):
-        def chat(messages, **kwargs):
-            if not messages:
-                return "", []
-            raise ollama.OllamaError('model "gemma3:4b" not found, try pulling it first')
-        with mock.patch.object(ollama, "chat", side_effect=chat), \
-                mock.patch.object(ollama, "capabilities", return_value=set()), \
-                mock.patch.object(stt, "transcribe_pcm", return_value="Hallo?"), \
-                mock.patch.object(stt, "preload"):
-            host, phone = FakeHost(), FakePhone()
-            voice = LocalVoice(host)
-            voice.command("start", phone)
-            voice.command("hold", phone)
-            voice.command("ask", phone)
+        voice, host, phone, seen = self.run_voice([], [])
+        answers = []
+        voice.on_answer.append(lambda q, a: answers.append(a))
+        with mock.patch.object(ollama, "chat", side_effect=ollama.OllamaError('model "gemma3:4b" not found')):
+            voice.ask_text("Hallo?")
             self.wait(voice, phone, "error")
-        error = [e for e in phone.events if e["type"] == "error"][0]
-        self.assertIn("nicht installiert", error["text"])
+        self.assertIn("nicht installiert", [e for e in phone.events if e["type"] == "error"][0]["text"])
+        self.assertTrue(answers and answers[0].startswith("Fehler"))
+
+
+class ParseAnswerTest(unittest.TestCase):
+    def test_json_and_fallbacks(self):
+        from bluey.local_voice import parse_answer, wants_screen
+        self.assertEqual(parse_answer('{"say": "Hi", "tool": "none", "arguments": {}}'), ("Hi", None, {}))
+        self.assertEqual(parse_answer('{"say": "", "tool": "open_app", "arguments": {"name": "Editor"}}'),
+                         ("", "open_app", {"name": "Editor"}))
+        self.assertEqual(parse_answer("Einfach Text."), ("Einfach Text.", None, {}))
+        self.assertTrue(wants_screen("Was ist das hier?"))
+        self.assertTrue(wants_screen("Öffne bitte Chrome"))
+        self.assertFalse(wants_screen("Wie viel ist 17 mal 23?"))

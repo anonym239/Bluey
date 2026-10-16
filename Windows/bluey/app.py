@@ -380,6 +380,7 @@ def main():
         "download_model": download_model, "edit_personality": edit_personality, "edit_key": edit_key,
         "open_notes": open_notes, "quit": app.quit, "address": address, "phones": lambda: server.phone_names,
         "set_engine": set_engine, "restart": restart_if_awake, "open_url": computer.open_url,
+        "server": lambda: server, "ask": host.local.ask_text, "on_answer": host.local.on_answer.append,
     }, icon_on)
 
     # Menü (wird bei jedem Öffnen neu gebaut, wie beim Mac)

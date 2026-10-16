@@ -3,12 +3,13 @@
 Hier wählst du die KI (Ollama oder OpenAI), das Modell, die Spracherkennung und alles andere aus dem Menü.
 """
 import sys
+import threading
 
-from PySide6.QtCore import Qt, QTimer
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton,
+from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
                                QRadioButton, QScrollArea, QVBoxLayout, QWidget)
 
-from . import hardware, ollama, stt
+from . import diagnostics, hardware, ollama, stt
 from .config import settings
 
 
@@ -26,6 +27,9 @@ QComboBox, QPushButton { font-family: 'IBM Plex Sans'; font-size: 13px; color: w
 QComboBox QAbstractItemView { background: #2B2840; color: white; selection-background-color: #4254D6; }
 QPushButton:hover, QComboBox:hover { border-color: #6C86F5; }
 QPushButton[role="primary"] { background: #4254D6; border-color: #6C86F5; font-weight: 600; }
+QPushButton:disabled { color: #8A85A0; }
+QLineEdit { font-family: 'IBM Plex Sans'; font-size: 13px; color: white; background: #2B2840;
+    border: 1px solid #3A3654; border-radius: 9px; padding: 7px 10px; }
 QCheckBox, QRadioButton { color: #E8E4F2; font-family: 'IBM Plex Sans'; font-size: 13px; spacing: 8px; }
 QScrollArea { border: none; background: transparent; }
 QRadioButton::indicator { width: 14px; height: 14px; border-radius: 8px; border: 2px solid #6C86F5; background: #17151F; }
@@ -52,6 +56,8 @@ def _card():
 
 
 class SettingsWindow(QWidget):
+    _from_thread = Signal(object)
+
     def __init__(self, actions, icon=None):
         """`actions`: download_model(name), edit_personality(), edit_key(), open_notes(), quit(), address(),
         phones(), set_engine(name), restart()"""
@@ -80,6 +86,37 @@ class SettingsWindow(QWidget):
         main.addWidget(_label("Bluey", "title"))
         self.status = _label("", "soft")
         main.addWidget(self.status)
+        self._from_thread.connect(lambda fn: fn())
+
+        # Testen
+        card, box = _card()
+        box.addWidget(_label("TESTEN", "section"))
+        row = QHBoxLayout()
+        self.test_button = QPushButton("Verbindung und KI testen")
+        self.test_button.setProperty("role", "primary")
+        self.test_button.clicked.connect(self.run_test)
+        row.addWidget(self.test_button)
+        row.addStretch(1)
+        box.addLayout(row)
+        self.test_results = _label("Prüft Handy-Verbindung, Ollama, Modell, Spracherkennung und Bildschirm.", "soft")
+        self.test_results.setTextFormat(Qt.RichText)
+        box.addWidget(self.test_results)
+        box.addWidget(_label("Frag Bluey direkt (wie übers Handy, mit Zeigen und PC-Bedienung):", "soft"))
+        row = QHBoxLayout()
+        self.question = QLineEdit()
+        self.question.setPlaceholderText("z. B. Was ist die Hauptstadt von Australien?  oder  Öffne den Editor")
+        self.question.returnPressed.connect(self.ask)
+        row.addWidget(self.question, 1)
+        self.ask_button = QPushButton("Fragen")
+        self.ask_button.clicked.connect(self.ask)
+        row.addWidget(self.ask_button)
+        box.addLayout(row)
+        self.answer = _label("", None)
+        self.answer.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        box.addWidget(self.answer)
+        main.addWidget(card)
+        if "on_answer" in actions:
+            actions["on_answer"](lambda q, a: self._from_thread.emit(lambda: self._show_answer(q, a)))
 
         # KI
         card, box = _card()
@@ -198,6 +235,46 @@ class SettingsWindow(QWidget):
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh_status)
         self._timer.start(2000)
+
+    def run_test(self):
+        self.test_button.setEnabled(False)
+        self.test_button.setText("Teste …")
+        lines = []
+
+        def show():
+            self.test_results.setText("<br>".join(lines) or "Teste …")
+
+        def report(name, ok, text):
+            mark = {True: "<span style='color:#5BE49B'>✓</span>", False: "<span style='color:#FF9AA8'>✗</span>",
+                    None: "<span style='color:#FFD66B'>!</span>"}[ok]
+            lines.append(f"{mark} <b>{_html(name)}</b>: {_html(text)}")
+            self._from_thread.emit(show)
+
+        def work():
+            try:
+                diagnostics.run(self.actions["server"](), report)
+            except Exception as error:
+                report("Test", False, str(error))
+
+            def done():
+                self.test_button.setEnabled(True)
+                self.test_button.setText("Nochmal testen")
+                self.refresh()
+            self._from_thread.emit(done)
+        show()
+        threading.Thread(target=work, name="Bluey Test", daemon=True).start()
+
+    def ask(self):
+        question = self.question.text().strip()
+        if not question:
+            return
+        self.answer.setText(f"<span style='color:#B9B2CC'>Bluey denkt nach über „{_html(question)}“ …</span>")
+        self.ask_button.setEnabled(False)
+        self.actions["ask"](question)
+
+    def _show_answer(self, question, answer):
+        self.ask_button.setEnabled(True)
+        self.answer.setText(f"<span style='color:#B9B2CC'>Du: {_html(question)}</span><br><b>Bluey:</b> {_html(answer)}")
 
     def _combo(self, items, key):
         combo = QComboBox()
@@ -330,3 +407,7 @@ class SettingsWindow(QWidget):
                 ctypes.windll.user32.SetForegroundWindow(int(self.winId()))
             except Exception:
                 pass
+
+
+def _html(text):
+    return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
