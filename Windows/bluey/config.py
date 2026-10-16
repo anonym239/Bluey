@@ -49,7 +49,9 @@ DEFAULTS = {
     "port": DEFAULT_PORT,
     "confirm_actions": False,   # vor jeder Aktion am PC nachfragen
     "phone_mouse": True,        # Maus unten am Rand aufs Handy schieben
-    "welcome_done": False,      # Einstellungsfenster beim allerersten Start zeigen
+    "welcome_done": False,
+    "mic_source": "pc",         # wer zuhört: "pc" (PC-Mikrofon) oder "phone" (Handy-Mikrofon)
+    "mic_device": "",           # Name des PC-Mikrofons, leer = Windows-Standard      # Einstellungsfenster beim allerersten Start zeigen
 }
 
 

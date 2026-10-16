@@ -5,7 +5,8 @@ datas = [("bluey/assets", "bluey/assets")]
 binaries = []
 hiddenimports = (collect_submodules("bluey") + collect_submodules("keyring.backends") + collect_submodules("winrt")
                  + collect_submodules("requests") + collect_submodules("huggingface_hub") + ["tqdm", "certifi", "charset_normalizer", "idna", "urllib3"])
-for package in ("faster_whisper", "ctranslate2", "uiautomation", "onnxruntime", "tokenizers", "av", "huggingface_hub", "certifi"):
+for package in ("faster_whisper", "ctranslate2", "uiautomation", "onnxruntime", "tokenizers", "av", "huggingface_hub", "certifi",
+                "sounddevice", "_sounddevice_data"):
     try:
         d, b, h = collect_all(package)
         datas += d

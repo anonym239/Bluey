@@ -6,10 +6,10 @@ import sys
 import threading
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QProgressBar, QPushButton,
                                QRadioButton, QScrollArea, QVBoxLayout, QWidget)
 
-from . import diagnostics, hardware, ollama, stt
+from . import diagnostics, hardware, ollama, pc_mic, stt
 from .config import settings
 
 
@@ -28,6 +28,8 @@ QComboBox QAbstractItemView { background: #2B2840; color: white; selection-backg
 QPushButton:hover, QComboBox:hover { border-color: #6C86F5; }
 QPushButton[role="primary"] { background: #4254D6; border-color: #6C86F5; font-weight: 600; }
 QPushButton:disabled { color: #8A85A0; }
+QProgressBar { background: #2B2840; border: none; border-radius: 5px; height: 10px; }
+QProgressBar::chunk { background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #A9BCFF, stop:1 #4254D6); border-radius: 5px; }
 QLineEdit { font-family: 'IBM Plex Sans'; font-size: 13px; color: white; background: #2B2840;
     border: 1px solid #3A3654; border-radius: 9px; padding: 7px 10px; }
 QCheckBox, QRadioButton { color: #E8E4F2; font-family: 'IBM Plex Sans'; font-size: 13px; spacing: 8px; }
@@ -166,6 +168,35 @@ class SettingsWindow(QWidget):
         box.addWidget(key)
         main.addWidget(card)
 
+        # Mikrofon
+        card, box = _card()
+        box.addWidget(_label("MIKROFON (BEI DER LOKALEN KI)", "section"))
+        self.mic_pc = QRadioButton("PC-Mikrofon – besser, wenn das Handy weiter weg steht")
+        self.mic_phone = QRadioButton("Handy-Mikrofon")
+        self.mic_pc.toggled.connect(lambda on: on and self._set_mic("pc"))
+        self.mic_phone.toggled.connect(lambda on: on and self._set_mic("phone"))
+        box.addWidget(self.mic_pc)
+        box.addWidget(self.mic_phone)
+        row = QHBoxLayout()
+        row.addWidget(_label("Gerät:"))
+        self.mic_device = QComboBox()
+        self.mic_device.currentIndexChanged.connect(self._mic_device_chosen)
+        row.addWidget(self.mic_device, 1)
+        box.addLayout(row)
+        row = QHBoxLayout()
+        self.mic_test_button = QPushButton("Mikrofon testen (4 Sekunden sprechen)")
+        self.mic_test_button.clicked.connect(self.test_mic)
+        row.addWidget(self.mic_test_button)
+        self.mic_level = QProgressBar()
+        self.mic_level.setRange(0, 100)
+        self.mic_level.setTextVisible(False)
+        row.addWidget(self.mic_level, 1)
+        box.addLayout(row)
+        self.mic_result = _label("Gefragt wird weiter am Handy: gedrückt halten (oder mit der Maus aufs Handy und "
+                                 "die linke Taste halten) und dabei ins PC-Mikrofon sprechen.", "soft")
+        box.addWidget(self.mic_result)
+        main.addWidget(card)
+
         # Spracherkennung
         card, box = _card()
         box.addWidget(_label("SPRACHERKENNUNG (WHISPER, LOKAL)", "section"))
@@ -276,6 +307,65 @@ class SettingsWindow(QWidget):
         self.ask_button.setEnabled(True)
         self.answer.setText(f"<span style='color:#B9B2CC'>Du: {_html(question)}</span><br><b>Bluey:</b> {_html(answer)}")
 
+    def _set_mic(self, source):
+        if self._updating:
+            return
+        settings.mic_source = source
+        self.mic_device.setEnabled(source == "pc")
+        self.actions.get("mic_changed", lambda: None)()
+
+    def _mic_device_chosen(self, _index):
+        if self._updating:
+            return
+        settings.mic_device = self.mic_device.currentData() or ""
+        self.actions.get("mic_changed", lambda: None)()
+
+    def test_mic(self):
+        """Nimmt 4 Sekunden auf, zeigt den Pegel und was Whisper verstanden hat."""
+        mic = pc_mic.PcMic()
+        audio = bytearray()
+        if not mic.start(audio.extend, settings.mic_device or None):
+            self.mic_result.setText(f"Mikrofon geht nicht: {mic.error}")
+            return
+        self.mic_test_button.setEnabled(False)
+        self.mic_result.setText(f"Sprich jetzt etwas … ({mic.device_name or 'Standard-Mikrofon'})")
+        peak = [0.0]
+        timer = QTimer(self)
+
+        def tick():
+            peak[0] = max(peak[0], mic.level)
+            self.mic_level.setValue(int(mic.level * 100))
+        timer.timeout.connect(tick)
+        timer.start(50)
+
+        def stop():
+            timer.stop()
+            mic.stop()
+            self.mic_level.setValue(0)
+            self.mic_result.setText("Verstehe …")
+            data = bytes(audio)
+
+            def work():
+                try:
+                    text = stt.transcribe_pcm(data, pc_mic.RATE)
+                except Exception as error:
+                    text = None
+                    message = f"Spracherkennung ging nicht: {error}"
+                if text is None:
+                    result = message
+                elif text:
+                    result = f"Verstanden: „{text}“"
+                else:
+                    result = ("Nichts verstanden. " + ("Das Mikrofon ist sehr leise – im Windows-Sound-Menü lauter stellen "
+                              "oder ein anderes Gerät wählen." if peak[0] < 0.08 else "Nochmal deutlicher probieren."))
+
+                def show():
+                    self.mic_result.setText(result)
+                    self.mic_test_button.setEnabled(True)
+                self._from_thread.emit(show)
+            threading.Thread(target=work, daemon=True).start()
+        QTimer.singleShot(4000, stop)
+
     def _combo(self, items, key):
         combo = QComboBox()
         for text, value in items:
@@ -380,6 +470,14 @@ class SettingsWindow(QWidget):
             self._select(self.model, settings.ollama_model)
             self.model.setEnabled(bool(models))
             self._fill_downloads(models)
+            self.mic_pc.setChecked(settings.mic_source == "pc")
+            self.mic_phone.setChecked(settings.mic_source != "pc")
+            self.mic_device.clear()
+            self.mic_device.addItem("Windows-Standard" + (f" ({pc_mic.default_name()})" if pc_mic.default_name() else ""), "")
+            for _index, name in pc_mic.devices():
+                self.mic_device.addItem(name, name)
+            self._select(self.mic_device, settings.mic_device)
+            self.mic_device.setEnabled(settings.mic_source == "pc")
             for key_name, check in self.checks.items():
                 check.setChecked(bool(getattr(settings, key_name)))
             self.checks["confirm_actions"].setEnabled(bool(settings.computer_control))

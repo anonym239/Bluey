@@ -10,10 +10,12 @@ import json
 import queue
 import re
 import threading
+import time
 import traceback
 import uuid
 
 from . import ollama, prompts, stt
+from .pc_mic import PcMic
 from .config import settings
 
 RATE = 24000
@@ -245,6 +247,9 @@ class LocalVoice:
         self.history = []           # bisherige Fragen und Antworten
         self.generation = 0
         self.on_answer = []         # Rückrufe (Frage, Antwort), z. B. fürs Testfeld im Einstellungsfenster
+        self.mic = PcMic()
+        self.muted_until = 0.0      # solange das Handy vorliest, hört das PC-Mikro weg
+        self.speaking = False
         threading.Thread(target=self._worker, name="Bluey lokale KI", daemon=True).start()
 
     # Vom Handy (Lese-Thread)
@@ -258,6 +263,7 @@ class LocalVoice:
                 self.phone, self.active, self.holding = phone, True, False
                 self.segmenter = Segmenter()
                 self.question_audio = None
+            self._start_mic()
             self._warm_up()
         elif what == "stop":
             with self.lock:
@@ -266,6 +272,7 @@ class LocalVoice:
                     self.holding = False
                     self.generation += 1
                     self.segmenter = Segmenter()
+            self.mic.stop()
         elif what == "hold":
             with self.lock:
                 if self.phone is phone:
@@ -282,16 +289,50 @@ class LocalVoice:
                 self.question_audio = None
                 gen = self.generation
             self.jobs.put(("question", audio, gen))
+        elif what == "speaking":
+            self.speaking = True
+        elif what == "quiet":
+            self.speaking = False
+            self.muted_until = time.monotonic() + 0.4  # kurzes Echo abwarten
         elif what == "hi":
             self.jobs.put(("text", "Sag ein kurzes, fröhliches Hallo in unter acht Wörtern.", self.generation))
 
+    @property
+    def uses_pc_mic(self):
+        return self.mic.running
+
+    def _start_mic(self):
+        """Hört über das PC-Mikrofon, wenn so eingestellt; sonst (oder wenn keins da ist) über das Handy."""
+        if settings.mic_source != "pc":
+            self.mic.stop()
+            self._send({"type": "mic", "source": "phone"})
+            return
+        if self.mic.start(self.pc_audio, settings.mic_device or None):
+            print(f"[Bluey] Höre über das PC-Mikrofon: {self.mic.device_name}", flush=True)
+            self._send({"type": "mic", "source": "pc", "name": self.mic.device_name or ""})
+        else:
+            print(f"[Bluey] PC-Mikrofon geht nicht ({self.mic.error}), nehme das Handy.", flush=True)
+            self._send({"type": "mic", "source": "phone"})
+
+    def restart_mic(self):
+        """Nach einer Änderung in den Einstellungen."""
+        if self.active:
+            self._start_mic()
+
+    def pc_audio(self, pcm):
+        if self.active and not self.speaking and time.monotonic() >= self.muted_until:
+            self.feed(pcm)
+
     def audio(self, data, phone):
-        if not data or phone is not self.phone or not self.active:
+        if not data or phone is not self.phone or not self.active or self.uses_pc_mic:
             return
         try:
             pcm = base64.b64decode(data)
         except (ValueError, TypeError):
             return
+        self.feed(pcm)
+
+    def feed(self, pcm):
         segments = []
         with self.lock:
             self.recent += pcm

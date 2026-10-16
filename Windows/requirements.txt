@@ -5,6 +5,7 @@ Pillow==11.3.0
 numpy==2.2.6
 faster-whisper==1.1.1
 requests==2.32.4
+sounddevice==0.5.1
 keyring==25.6.0; sys_platform == 'win32'
 uiautomation==2.0.28; sys_platform == 'win32'
 winrt-runtime==2.3.0; sys_platform == 'win32'

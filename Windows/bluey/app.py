@@ -34,7 +34,7 @@ def selftest():
     """Für die automatische Prüfung der .exe: alles Wichtige laden und mit 0 beenden."""
     import importlib
     failed = []
-    for name in ("PySide6.QtWidgets", "zeroconf", "mss", "PIL.Image", "numpy", "faster_whisper", "ctranslate2",
+    for name in ("PySide6.QtWidgets", "zeroconf", "mss", "PIL.Image", "numpy", "faster_whisper", "ctranslate2", "sounddevice",
                  "bluey.overlay", "bluey.host", "bluey.local_voice", "bluey.report_panel"):
         try:
             importlib.import_module(name)
@@ -381,6 +381,7 @@ def main():
         "open_notes": open_notes, "quit": app.quit, "address": address, "phones": lambda: server.phone_names,
         "set_engine": set_engine, "restart": restart_if_awake, "open_url": computer.open_url,
         "server": lambda: server, "ask": host.local.ask_text, "on_answer": host.local.on_answer.append,
+        "mic_changed": lambda: threading.Thread(target=host.local.restart_mic, daemon=True).start(),
     }, icon_on)
 
     # Menü (wird bei jedem Öffnen neu gebaut, wie beim Mac)

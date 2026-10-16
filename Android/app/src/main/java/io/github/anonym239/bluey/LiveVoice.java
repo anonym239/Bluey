@@ -77,6 +77,8 @@ final class LiveVoice {
     private boolean phoneSession, ready;
     /** Lokale KI auf dem PC (Ollama + Whisper): das Handy schickt nur Audio, der PC macht den Rest. */
     private volatile boolean local;
+    /** Der PC hört über sein eigenes Mikrofon zu: dann schickt das Handy kein Audio. */
+    volatile boolean pcMic;
     private int generation;
     private String transcript = "";
     private boolean responseActive, sleepAfterReply, holding, askWhenReady, chirped, awaitingQuestion, speakingReply;
@@ -164,6 +166,7 @@ final class LiveVoice {
         if (old != null) old.close(1000, "Schlafen");
         if (local) desktopSend.accept(Json.obj("command", "voice", "text", "stop"));
         local = false;
+        pcMic = false;
         stopAudio();
         speech.stop();
         transcript = "";
@@ -186,7 +189,7 @@ final class LiveVoice {
     void beginAsk() {
         holding = true;
         onCaption.accept("", false);  // löscht seine letzte Blase
-        if (speakingReply) { speech.stop(); speakingReply = false; }
+        if (speakingReply) { speech.stop(); speakingReply = false; tellSpeaking(false); }
         if (state == State.ASLEEP) { wake(); return; }
         if (local && ready) desktopSend.accept(Json.obj("command", "voice", "text", "hold"));
         if ((socket == null && !local) || !ready) return;
@@ -272,6 +275,9 @@ final class LiveVoice {
             }
             case "report":
                 onReport.accept(event.optString("text"));
+                break;
+            case "mic":
+                pcMic = "pc".equals(event.optString("source"));
                 break;
             case "error":
                 responseActive = false;
@@ -488,16 +494,24 @@ final class LiveVoice {
         }
     }
 
+    /** Sagt dem PC, dass das Handy gerade vorliest (damit sein Mikrofon Bluey nicht selbst hört). */
+    private void tellSpeaking(boolean on) {
+        if (local) desktopSend.accept(Json.obj("command", "voice", "text", on ? "speaking" : "quiet"));
+    }
+
     private void speakReply(String reply) {
         if (reply.isEmpty() || !settings.spokenReplies()) return;
         int run = generation;
         speakingReply = true;
+        tellSpeaking(true);
         boolean started = speech.speak(reply, ok -> {
+            tellSpeaking(false);
             if (run != generation) return;
             speakingReply = false;
             finishIfQuiet();
         });
         if (!started) {
+            tellSpeaking(false);
             speakingReply = false;
             onProblem.accept("Keine Android-Stimme verfügbar. Prüf die Sprachausgabe in den Android-Einstellungen.");
         }
@@ -621,6 +635,7 @@ final class LiveVoice {
                     bytes[2 * i] = (byte) (wire[i] & 0xFF);
                     bytes[2 * i + 1] = (byte) ((wire[i] >> 8) & 0xFF);
                 }
+                if (local && pcMic) continue;  // der PC hört selbst zu
                 if (local) {
                     String audio64 = Base64.encodeToString(bytes, Base64.NO_WRAP);
                     ui.post(() -> { if (local) desktopSend.accept(Json.obj("command", "audio", "audio", audio64)); });

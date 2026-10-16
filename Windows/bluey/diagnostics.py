@@ -3,7 +3,7 @@ import json
 import time
 import traceback
 
-from . import ollama, screen_reader, stt
+from . import ollama, pc_mic, screen_reader, stt
 from .config import settings
 from .server import lan_addresses
 
@@ -23,6 +23,23 @@ def run(server, report):
     else:
         report("Handy", None, "kein Handy verbunden. Bluey-App öffnen, gleiches WLAN, ggf. „IP eingeben“ mit der "
                "Adresse oben. Fragt die Windows-Firewall, „Private Netzwerke“ erlauben.")
+
+    # Mikrofon
+    if settings.mic_source == "pc":
+        found = pc_mic.devices()
+        if not found:
+            report("Mikrofon", False, "kein PC-Mikrofon gefunden – Bluey nimmt das Handy-Mikrofon.")
+        else:
+            mic, levels = pc_mic.PcMic(), []
+            if mic.start(lambda pcm: levels.append(mic.level), settings.mic_device or None):
+                time.sleep(1.0)
+                mic.stop()
+                report("Mikrofon", True, f"PC-Mikrofon „{mic.device_name}“ nimmt auf (Pegel {int(max(levels or [0]) * 100)} %)."
+                       " Weiter unten „Mikrofon testen“ zeigt, was er versteht.")
+            else:
+                report("Mikrofon", False, f"PC-Mikrofon lässt sich nicht öffnen: {mic.error}")
+    else:
+        report("Mikrofon", None, "es hört das Handy-Mikrofon (in den Einstellungen auf PC umstellbar).")
 
     # 2. Ollama und Modell
     if settings.engine == "openai":

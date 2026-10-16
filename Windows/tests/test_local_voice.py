@@ -91,6 +91,8 @@ class LocalVoiceTest(unittest.TestCase):
         self.fail(f"kein {kind}-Ereignis: {phone.events}")
 
     def run_voice(self, replies, words, caps=frozenset({"completion", "vision"})):
+        from bluey.config import settings
+        settings.mic_source = "phone"  # Tests hören nie auf ein echtes Mikrofon
         replies = iter(replies)
         seen = []
 
@@ -176,6 +178,48 @@ class LocalVoiceTest(unittest.TestCase):
             self.wait(voice, phone, "error")
         self.assertIn("nicht installiert", [e for e in phone.events if e["type"] == "error"][0]["text"])
         self.assertTrue(answers and answers[0].startswith("Fehler"))
+
+
+class PcMicTest(unittest.TestCase):
+    def test_pc_microphone_replaces_the_phone(self):
+        from bluey.config import settings
+        from bluey.pc_mic import PcMic
+        captured = {}
+
+        def fake_start(mic, on_audio, device=None):
+            captured["feed"] = on_audio
+            mic._stream = object()
+            mic.device_name = "Headset"
+            return True
+        settings.mic_source = "pc"
+        words = iter(["Wie spät ist es?"])
+        replies = iter([{"say": "Kurz nach drei.", "tool": "none", "arguments": {}}])
+        with mock.patch.object(PcMic, "start", fake_start), mock.patch.object(PcMic, "stop", lambda mic: setattr(mic, "_stream", None)), \
+                mock.patch.object(ollama, "chat", side_effect=lambda messages, **k: (json.dumps(next(replies)), []) if messages else ("", [])), \
+                mock.patch.object(ollama, "capabilities", return_value=set()), \
+                mock.patch.object(stt, "transcribe_pcm", side_effect=lambda pcm, rate: next(words)), \
+                mock.patch.object(stt, "preload"):
+            host, phone = FakeHost(), FakePhone()
+            voice = LocalVoice(host)
+            voice.command("start", phone)
+            self.assertTrue(voice.uses_pc_mic)
+            self.assertIn({"type": "mic", "source": "pc", "name": "Headset"}, phone.events)
+            voice.command("hold", phone)
+            voice.audio(base64.b64encode(tone(1.0)).decode(), phone)  # Handy-Audio wird ignoriert
+            before = len(voice.question_audio)
+            voice.command("speaking", phone)
+            captured["feed"](tone(0.5))                              # liest gerade vor: weghören
+            self.assertEqual(len(voice.question_audio), before)
+            voice.command("quiet", phone)
+            voice.muted_until = 0
+            captured["feed"](tone(1.0))                              # PC-Mikro zählt
+            self.assertEqual(len(voice.question_audio), before + 48000)
+            voice.command("ask", phone)
+            LocalVoiceTest.wait(self, voice, phone, "done")
+            voice.command("stop", phone)
+            self.assertFalse(voice.uses_pc_mic)
+        settings.mic_source = "phone"
+        self.assertEqual([e for e in phone.events if e["type"] == "done"][0]["text"], "Kurz nach drei.")
 
 
 class ParseAnswerTest(unittest.TestCase):

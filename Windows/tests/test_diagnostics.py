@@ -46,6 +46,7 @@ class DiagnosticsTest(unittest.TestCase):
         threading.Thread(target=http.serve_forever, daemon=True).start()
         old_url, old_model = settings.ollama_url, settings.ollama_model
         settings.ollama_url, settings.ollama_model, settings.engine = f"http://127.0.0.1:{http.server_port}", "gemma3:4b", "ollama"
+        settings.mic_source = "phone"
         results = []
         shot = screen_reader.Snapshot(b"", [(screen_reader.Target("L1", "Hallo Welt", (0, 0, 10, 10)),
                                              [screen_reader.Target("W1", "Hallo", (0, 0, 5, 10))])], (100, 100))
@@ -56,8 +57,9 @@ class DiagnosticsTest(unittest.TestCase):
         finally:
             settings.ollama_url, settings.ollama_model = old_url, old_model
             http.shutdown()
+        settings.mic_source = "pc"
         status = {name: ok for name, ok, _ in results}
-        self.assertEqual(status, {"PC-Server": True, "Handy": True, "Ollama": True, "Modell": True,
+        self.assertEqual(status, {"PC-Server": True, "Handy": True, "Mikrofon": None, "Ollama": True, "Modell": True,
                                   "KI antwortet": True, "Spracherkennung": True, "Bildschirm": True}, results)
 
     def test_ollama_missing(self):

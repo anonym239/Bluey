@@ -60,6 +60,8 @@ Das Modell lässt sich auch **am Handy** wählen: im Lautsprecher-Panel unter **
 - **Vorlesen:** Bluey sagt seine Antworten am Handy laut (Android-Stimme), und gleichzeitig stehen sie am PC. Abschalten geht im Lautsprecher-Panel oder in Blueys App unter **Antworten laut vorlesen**.
 - Ein Rahmen erscheint nur, wenn etwas passiert: **blau** heißt „ganz Ohr“ (beim Halten), **lila** „denkt nach“, **rosa** „antwortet“. Hört er nur still zu, bleibt der Bildschirm frei.
 
+**PC-Mikrofon statt Handy-Mikro:** Steht das Handy weiter weg, hört Bluey über das Mikrofon am PC zu (Standard bei der lokalen KI). Gefragt wird trotzdem am Handy: gedrückt halten (oder mit der Maus aufs Handy und die linke Taste halten) und dabei ins PC-Mikro sprechen. Im PC-Einstellungsfenster unter **Mikrofon** wählst du PC oder Handy und das Gerät. **Mikrofon testen** zeigt den Pegel und was Bluey verstanden hat. Während das Handy vorliest, hört das PC-Mikro kurz weg. Findet Bluey am PC kein Mikrofon, nimmt er automatisch das Handy.
+
 **Mit der PC-Maus statt mit dem Finger:**
 
 - Schieb die Maus am PC **unten aus dem Bildschirm**, genau dort, wo das Handy steht. Dort leuchtet ein Balken auf. Dann wandert der Mauszeiger aufs Handy, als kleiner Beeren-Zeiger, und Blueys Augen folgen ihm.

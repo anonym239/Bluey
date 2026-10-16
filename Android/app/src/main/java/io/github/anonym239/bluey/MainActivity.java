@@ -205,7 +205,8 @@ public final class MainActivity extends Activity {
 
     /** Langsamer Takt für Dinge, die sich mit der Zeit ändern (Etikett, Verbindung). */
     private void tick() {
-        indicator.suffix = settings.phoneMode() && voice.state != LiveVoice.State.ASLEEP ? "ohne PC" : null;
+        indicator.suffix = voice.state == LiveVoice.State.ASLEEP ? null
+            : settings.phoneMode() ? "ohne PC" : voice.pcMic ? "PC-Mikro" : null;
         ui.postDelayed(this::tick, 1000);
     }
 
