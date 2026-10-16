@@ -345,8 +345,8 @@ def main():
         item = QAction(title + (f"\t{shortcut}" if shortcut else ""), parent)
         if checked is not None:
             item.setCheckable(True)
-            item.setChecked(checked)
-        item.setEnabled(enabled)
+            item.setChecked(bool(checked))
+        item.setEnabled(bool(enabled))
         if action:
             item.triggered.connect(lambda _=False: action())
         parent.addAction(item)
@@ -380,7 +380,7 @@ def main():
         menu.addSeparator()
 
         ai = menu.addMenu("KI")
-        running = ollama.running()
+        running = bool(ollama.running())
         group = QActionGroup(ai)
         group.addAction(add(ai, "Ollama (lokal auf dem PC, kostenlos)", lambda: set_engine("ollama"), checked=settings.engine == "ollama"))
         group.addAction(add(ai, "OpenAI Realtime (API-Schlüssel nötig)", lambda: set_engine("openai"), checked=settings.engine == "openai"))
@@ -424,6 +424,8 @@ def main():
 
     menu.aboutToShow.connect(build_menu)
     build_menu()
+    if os.environ.get("BLUEY_MENU_TEST"):
+        print("MENU OK", len(menu.actions()), flush=True)
     tray.activated.connect(lambda reason: show_info() if reason == QSystemTrayIcon.DoubleClick else None)
 
     # Tastenkürzel: Strg+Alt + Taste (Strg+Alt+Leertaste weckt ihn, wie Doppeltippen auf dem Handy).
@@ -474,6 +476,8 @@ def main():
         stt.preload()
 
     QTimer.singleShot(800, first_checks)
+    if os.environ.get("BLUEY_QUIT_AFTER"):  # für den automatischen Starttest
+        QTimer.singleShot(int(float(os.environ["BLUEY_QUIT_AFTER"]) * 1000), app.quit)
     sys.exit(app.exec())
 
 
