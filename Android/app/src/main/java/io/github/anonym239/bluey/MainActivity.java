@@ -124,6 +124,9 @@ public final class MainActivity extends Activity {
             @Override public boolean phoneMode() { return settings.phoneMode(); }
             @Override public void manual() { manualAddress(); }
             @Override public void settings() { voiceSettings(); }
+            @Override public boolean spoken() { return settings.spokenReplies(); }
+            @Override public void setSpoken(boolean on) { setSpokenReplies(on); }
+            @Override public void chooseModel() { MainActivity.this.chooseModel(); }
         });
         FrameLayout.LayoutParams soundParams = new FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END);
         soundParams.setMargins(0, Ui.dp(this, 10), Ui.dp(this, 14), 0);
@@ -147,6 +150,9 @@ public final class MainActivity extends Activity {
             @Override public void close() { showApp(false); }
             @Override public void settings() { voiceSettings(); }
             @Override public boolean phoneMode() { return settings.phoneMode(); }
+            @Override public boolean spoken() { return settings.spokenReplies(); }
+            @Override public void setSpoken(boolean on) { setSpokenReplies(on); }
+            @Override public void chooseModel() { MainActivity.this.chooseModel(); }
         });
         app.setVisibility(View.GONE);
         root.addView(app, new FrameLayout.LayoutParams(-1, -1));
@@ -409,6 +415,73 @@ public final class MainActivity extends Activity {
     }
 
     // Dialoge
+
+    private void setSpokenReplies(boolean on) {
+        settings.setSpokenReplies(on);
+        if (!on) speech.stop();
+        Toast.makeText(this, on ? "Bluey liest seine Antworten jetzt laut vor." : "Antworten nur als Text.", Toast.LENGTH_SHORT).show();
+        sound.refresh();
+        if (app.getVisibility() == View.VISIBLE) app.refresh();
+    }
+
+    /** Welches KI-Modell der PC benutzt: installierte zum Wählen, passende zum Herunterladen. */
+    private void chooseModel() {
+        if (settings.phoneMode()) {
+            Toast.makeText(this, "Im Modus „Nur Handy“ antwortet OpenAI. Für Ollama-Modelle in den Einstellungen „Mit PC“ wählen.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!link.connected) {
+            Toast.makeText(this, "Verbinde dich zuerst mit deinem PC.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        link.request(Json.obj("command", "models"), reply -> {
+            JSONObject info = reply == null ? null : Json.parse(Json.str(reply, "text"));
+            if (info == null) {
+                Toast.makeText(this, "Der PC hat nicht geantwortet. Ist die neueste Bluey-Version installiert?", Toast.LENGTH_LONG).show();
+                return;
+            }
+            if (!info.optBoolean("ollama")) {
+                new AlertDialog.Builder(this, R.style.DialogTheme).setTitle("Ollama läuft nicht")
+                    .setMessage("Auf dem PC läuft Ollama gerade nicht. Installiere es von ollama.com und starte es.")
+                    .setPositiveButton("OK", null).show();
+                return;
+            }
+            String current = info.optString("current");
+            java.util.List<String> names = new java.util.ArrayList<>();
+            java.util.List<String> labels = new java.util.ArrayList<>();
+            org.json.JSONArray installed = info.optJSONArray("models");
+            java.util.Set<String> have = new java.util.HashSet<>();
+            if (installed != null) for (int i = 0; i < installed.length(); i++) {
+                String name = installed.optString(i);
+                have.add(name);
+                names.add(name);
+                labels.add((name.equals(current) ? "✓ " : "") + name);
+            }
+            org.json.JSONArray recommended = info.optJSONArray("recommended");
+            if (recommended != null) for (int i = 0; i < recommended.length(); i++) {
+                JSONObject r = recommended.optJSONObject(i);
+                if (r == null || have.contains(r.optString("name"))) continue;
+                names.add(r.optString("name"));
+                labels.add("⬇ " + r.optString("name") + " – " + r.optString("text"));
+            }
+            new AlertDialog.Builder(this, R.style.DialogTheme)
+                .setTitle("KI-Modell am PC")
+                .setItems(labels.toArray(new String[0]), (d, which) -> {
+                    String name = names.get(which);
+                    boolean download = !have.contains(name);
+                    Toast.makeText(this, download ? "Der PC lädt " + name + " herunter. Das kann ein paar Minuten dauern …"
+                        : "Bluey benutzt jetzt " + name + ".", Toast.LENGTH_LONG).show();
+                    link.request(Json.obj("command", "setModel", "text", name), done -> {
+                        String result = done == null ? null : Json.str(done, "text");
+                        if (result != null && result.startsWith("Fehler")) Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+                        else if (download && result != null) Toast.makeText(this, name + " ist fertig und aktiv.", Toast.LENGTH_LONG).show();
+                    });
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+            if (info.has("hardware")) Toast.makeText(this, "Dein PC: " + info.optString("hardware"), Toast.LENGTH_SHORT).show();
+        });
+    }
 
     private void manualAddress() {
         EditText input = new EditText(this);

@@ -38,6 +38,10 @@ Die Spracherkennung läuft ebenfalls lokal mit **Whisper** (faster-whisper). Das
 
 `Bluey-Setup.exe` installieren und starten. Bluey erscheint unten rechts im **Infobereich (Tray)**, eventuell hinter dem Pfeil `^`. Fragt die Windows-Firewall nach, Zugriff für **private Netzwerke** erlauben.
 
+**Klick auf die Beere** öffnet das **Einstellungsfenster**. Dort wählst du die KI (Ollama oder OpenAI) und das **Modell**. Bluey erkennt deine Grafikkarte und zeigt die passenden Modelle zum Herunterladen, das empfohlene mit ★ und zu große mit ⚠. Ein Rechtsklick öffnet das Menü.
+
+Das Modell lässt sich auch **am Handy** wählen: im Lautsprecher-Panel unter **KI-Modell** oder in Blueys App unter **KI-Modell am PC**. Nicht installierte Modelle lädt der PC dann von selbst herunter.
+
 ### 3. Android-App
 
 1. `Bluey.apk` aufs Handy laden und öffnen. Android fragt einmal, ob Installationen aus dieser Quelle erlaubt sind.
@@ -53,7 +57,8 @@ Die Spracherkennung läuft ebenfalls lokal mit **Whisper** (faster-whisper). Das
 - **Gedrückt halten:** etwas fragen. Beim **Loslassen** antwortet er als Sprechblase am PC, mit kleinem Zwitschern auf dem Handy.
 - Fragst du „Was ist das?“, schaut er auf deinen Bildschirm und zeigt mit seinem Cursor auf das, was unter deiner Maus ist.
 - Oben rechts: der Knopf mit den vier Kästchen öffnet **Blueys App** mit Sitzungen, Transkripten und Einstellungen. Der Lautsprecher-Knopf regelt die Zwitscher-Lautstärke und die Wahl des PCs.
-- Der Rahmen zeigt den Modus: **blau** heißt „hört zu“, **dicker blau** „ganz Ohr“ (beim Halten), **lila** „denkt nach“, **rosa** „antwortet“.
+- **Vorlesen:** Bluey sagt seine Antworten am Handy laut (Android-Stimme), und gleichzeitig stehen sie am PC. Abschalten geht im Lautsprecher-Panel oder in Blueys App unter **Antworten laut vorlesen**.
+- Ein Rahmen erscheint nur, wenn etwas passiert: **blau** heißt „ganz Ohr“ (beim Halten), **lila** „denkt nach“, **rosa** „antwortet“. Hört er nur still zu, bleibt der Bildschirm frei.
 
 **Mit der PC-Maus statt mit dem Finger:**
 

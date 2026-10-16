@@ -36,6 +36,9 @@ final class BlueyAppView extends FrameLayout {
         void close();
         void settings();
         boolean phoneMode();
+        boolean spoken();
+        void setSpoken(boolean on);
+        void chooseModel();
     }
 
     private final SessionStore store;
@@ -45,6 +48,7 @@ final class BlueyAppView extends FrameLayout {
     private final LinearLayout startButton;
     private final View dot;
     private final SeekBar volume;
+    private final android.widget.Switch spokenSwitch;
     private final FrameLayout detailHolder;
     private String openSession;
     private final Runnable observer = this::refresh;
@@ -113,10 +117,22 @@ final class BlueyAppView extends FrameLayout {
             @Override public void onStopTrackingTouch(SeekBar s) {}
         });
         side.addView(volume);
+        spokenSwitch = new android.widget.Switch(c);
+        spokenSwitch.setText("Antworten laut vorlesen");
+        spokenSwitch.setTextColor(Color.WHITE);
+        spokenSwitch.setTypeface(Fonts.sans);
+        spokenSwitch.setPadding(0, Ui.dp(c, 12), 0, 0);
+        spokenSwitch.setOnCheckedChangeListener((b, on) -> { if (on != host.spoken()) host.setSpoken(on); });
+        side.addView(spokenSwitch);
+        LinearLayout model = Ui.button(c, Icons.Kind.SPARKLES, "KI-Modell am PC", Fonts.sansBold, 15, Ui.round(0x14FFFFFF, 14, c));
+        model.setOnClickListener(v -> host.chooseModel());
+        LinearLayout.LayoutParams modelParams = new LinearLayout.LayoutParams(-1, -2);
+        modelParams.topMargin = Ui.dp(c, 18);
+        side.addView(model, modelParams);
         LinearLayout settings = Ui.button(c, Icons.Kind.GEAR, "Einstellungen", Fonts.sansBold, 15, Ui.round(0x14FFFFFF, 14, c));
         settings.setOnClickListener(v -> host.settings());
         LinearLayout.LayoutParams settingsParams = new LinearLayout.LayoutParams(-1, -2);
-        settingsParams.topMargin = Ui.dp(c, 18);
+        settingsParams.topMargin = Ui.dp(c, 10);
         side.addView(settings, settingsParams);
         LinearLayout back = Ui.button(c, Icons.Kind.SMILE, "Zurück zu seinem Gesicht", Fonts.sansBold, 15, Ui.round(0x14FFFFFF, 14, c));
         back.setOnClickListener(v -> host.close());
@@ -181,6 +197,7 @@ final class BlueyAppView extends FrameLayout {
         hint.setText(asleep ? "Er hört die ganze Sitzung zu. Halte sein Gesicht gedrückt, um etwas zu fragen; lass los, und er antwortet."
             : "Sitzung läuft. Halte sein Gesicht gedrückt, um zu fragen; alles Gesagte wird hier gespeichert.");
         volume.setProgress((int) Math.round(host.volume() * 100));
+        spokenSwitch.setChecked(host.spoken());
 
         count.setText(String.valueOf(store.sessions.size()));
         list.removeAllViews();

@@ -265,7 +265,8 @@ final class DesktopLink {
         waiting.put(id, done);
         send(packet);
         String command = packet.optString("command");
-        long timeout = command.equals("transcribe") ? 600_000 : command.equals("tool") ? 150_000 : 40_000;
+        long timeout = command.equals("setModel") ? 3_600_000 : command.equals("transcribe") ? 600_000
+            : command.equals("tool") ? 150_000 : 40_000;
         ui.postDelayed(() -> {
             Consumer<JSONObject> late = waiting.remove(id);
             if (late != null) late.accept(null);

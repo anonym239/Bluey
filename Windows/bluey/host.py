@@ -12,7 +12,7 @@ import time
 import traceback
 import urllib.request
 
-from . import computer, keys, meeting_notes, prompts, screen_reader, web_research
+from . import computer, keys, meeting_notes, ollama, prompts, screen_reader, web_research
 from .computer import Display
 from .config import settings
 from .cursor_engine import Mode
@@ -121,6 +121,37 @@ class Host:
             self.ui.post(lambda: self.caption(text, True))
         elif command == "tool":
             self._tools.put((packet.get("tool") or "", packet.get("text") or "{}", call_id, reply))
+        elif command == "models":
+            # Das Handy fragt, welche KI-Modelle es gibt (für die Auswahl am Handy).
+            def work():
+                running = bool(ollama.running())
+                from . import hardware
+                hw = hardware.detect()
+                body = {"engine": settings.engine, "ollama": running, "current": settings.ollama_model,
+                        "models": ollama.models() if running else [], "hardware": hw.summary,
+                        "recommended": [{"name": n, "text": t, "fits": f, "best": b} for n, t, f, b in hardware.recommend(hw)]}
+                reply({"command": "models", "callID": call_id, "text": json.dumps(body)})
+            threading.Thread(target=work, daemon=True).start()
+        elif command == "setModel":
+            # Modell wählen; ist es noch nicht installiert, lädt der PC es erst herunter.
+            name = str(packet.get("text") or "").strip()
+
+            def work():
+                result = settings.ollama_model
+                if name:
+                    try:
+                        if name not in ollama.models():
+                            self.ui.post(lambda: self.show_caption(f"Lade {name} herunter …", 8))
+                            ollama.pull(name)
+                        settings.ollama_model = name
+                        settings.engine = "ollama"
+                        result = name
+                        self.ui.post(lambda: self.show_caption(f"KI-Modell: {name}", 4))
+                    except ollama.OllamaError as error:
+                        result = "Fehler: " + str(error)
+                if call_id:
+                    reply({"command": "setModel", "callID": call_id, "text": result})
+            threading.Thread(target=work, daemon=True).start()
         elif command == "voice":
             self.local.command(packet.get("text"), phone)
         elif command == "audio":

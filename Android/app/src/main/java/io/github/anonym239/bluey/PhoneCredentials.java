@@ -25,7 +25,8 @@ final class PhoneCredentials {
     /** Ohne PC: das Handy spricht direkt mit OpenAI. Standard ist (wie beim iPhone) der PC. */
     boolean phoneMode() { return prefs.getBoolean("phone_mode", false); }
     /** Antworten zusätzlich mit der Android-Stimme vorlesen. */
-    boolean spokenReplies() { return prefs.getBoolean("spoken_replies", false); }
+    boolean spokenReplies() { return prefs.getBoolean("spoken_replies", true); }
+    void setSpokenReplies(boolean on) { prefs.edit().putBoolean("spoken_replies", on).apply(); }
     void configure(boolean phone, boolean spoken) {
         prefs.edit().putBoolean("phone_mode", phone).putBoolean("spoken_replies", spoken).apply();
     }

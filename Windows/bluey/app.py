@@ -72,6 +72,7 @@ def main():
     from .palette import GRADIENT, INK, color
     from .report_panel import ReportPanel
     from .server import PhoneServer, lan_addresses
+    from .settings_window import SettingsWindow
 
     QGuiApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
@@ -341,6 +342,8 @@ def main():
                 progress.close()
                 if state["done"] == "ok":
                     settings.ollama_model = name
+                    settings.engine = "ollama"
+                    window.refresh()
                     tray.showMessage("Bluey", f"{name} ist bereit.", QSystemTrayIcon.Information, 4000)
                 else:
                     QMessageBox.warning(None, "Bluey", f"Download fehlgeschlagen: {state['done']}")
@@ -373,6 +376,12 @@ def main():
         box.setWindowFlags(box.windowFlags() | Qt.WindowStaysOnTopHint)
         box.exec()
 
+    window = SettingsWindow({
+        "download_model": download_model, "edit_personality": edit_personality, "edit_key": edit_key,
+        "open_notes": open_notes, "quit": app.quit, "address": address, "phones": lambda: server.phone_names,
+        "set_engine": set_engine, "restart": restart_if_awake, "open_url": computer.open_url,
+    }, icon_on)
+
     # Menü (wird bei jedem Öffnen neu gebaut, wie beim Mac)
 
     def add(parent, title, action=None, checked=None, shortcut=None, enabled=True):
@@ -398,6 +407,7 @@ def main():
         menu.clear()
         phones = server.phone_names
         add(menu, ("Handy verbunden: " + ", ".join(phones)) if phones else "Warte auf die Handy-App …", enabled=False)
+        add(menu, "Einstellungen und KI-Modell …", window.open)
         add(menu, f"Adresse fürs Handy: {address()}", show_info)
         add(menu, "Schlafen legen (Folgemodus)" if host.awake else "Aufwecken und reden", toggle_awake,
             shortcut="Strg+Alt+Leertaste", enabled=bool(phones))
@@ -462,7 +472,8 @@ def main():
     build_menu()
     if os.environ.get("BLUEY_MENU_TEST"):
         print("MENU OK", len(menu.actions()), flush=True)
-    tray.activated.connect(lambda reason: show_info() if reason == QSystemTrayIcon.DoubleClick else None)
+    # Klick auf die Beere öffnet das Einstellungsfenster (Rechtsklick: Menü).
+    tray.activated.connect(lambda reason: window.open() if reason in (QSystemTrayIcon.Trigger, QSystemTrayIcon.DoubleClick) else None)
 
     # Tastenkürzel: Strg+Alt + Taste (Strg+Alt+Leertaste weckt ihn, wie Doppeltippen auf dem Handy).
     hotkeys = HotKeys(ui.post)
@@ -488,6 +499,9 @@ def main():
     app.aboutToQuit.connect(server.stop)
 
     def first_checks():
+        if not settings.welcome_done:
+            settings.welcome_done = True
+            window.open()
         tray.showMessage("Bluey läuft", f"Öffne Bluey auf dem Handy (gleiches WLAN). Adresse: {address()}",
                          QSystemTrayIcon.Information, 6000)
         if settings.engine != "ollama":

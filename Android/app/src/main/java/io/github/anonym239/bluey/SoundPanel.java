@@ -26,12 +26,16 @@ final class SoundPanel extends LinearLayout {
         boolean phoneMode();
         void manual();
         void settings();
+        boolean spoken();
+        void setSpoken(boolean on);
+        void chooseModel();
     }
 
     private final Host host;
     private final Icons.Button toggle;
     private final LinearLayout panel;
     private final TextView percent, hint;
+    private final android.widget.CheckBox spoken;
     private final SeekBar slider;
     private final LinearLayout hi;
     private final LinearLayout desktops;
@@ -77,6 +81,14 @@ final class SoundPanel extends LinearLayout {
         desktops = new LinearLayout(c);
         desktops.setOrientation(VERTICAL);
         panel.addView(desktops);
+        spoken = new android.widget.CheckBox(c);
+        spoken.setText("Antworten laut vorlesen");
+        spoken.setTextColor(Color.WHITE);
+        spoken.setTypeface(Fonts.sans);
+        spoken.setOnCheckedChangeListener((b, on) -> { if (on != host.spoken()) { host.setSpoken(on); poke(); } });
+        LayoutParams spokenParams = new LayoutParams(-1, -2);
+        spokenParams.topMargin = Ui.dp(c, 6);
+        panel.addView(spoken, spokenParams);
         hint = Ui.text(c, "", Fonts.sans, 12, Palette.INK_SOFT);
         hint.setPadding(0, Ui.dp(c, 8), 0, 0);
         panel.addView(hint);
@@ -84,6 +96,9 @@ final class SoundPanel extends LinearLayout {
         extras.setPadding(0, Ui.dp(c, 8), 0, 0);
         TextView manual = link(c, "IP eingeben");
         manual.setOnClickListener(v -> { close(); host.manual(); });
+        TextView model = link(c, "KI-Modell");
+        model.setOnClickListener(v -> { close(); host.chooseModel(); });
+        extras.addView(model, new LayoutParams(0, -2, 1));
         TextView settings = link(c, "Einstellungen");
         settings.setOnClickListener(v -> { close(); host.settings(); });
         extras.addView(manual, new LayoutParams(0, -2, 1));
@@ -136,6 +151,7 @@ final class SoundPanel extends LinearLayout {
         toggle.set(icon, open ? 0xE6FFFFFF : 0x59FFFFFF, open ? 0x24FFFFFF : 0x0FFFFFFF);
         percent.setText(String.format(Locale.ROOT, "%d %%", Math.round(volume * 100)));
         slider.setProgress((int) Math.round(volume * 100));
+        spoken.setChecked(host.spoken());
         boolean asleep = host.state() == LiveVoice.State.ASLEEP;
         ((TextView) hi.getChildAt(hi.getChildCount() - 1)).setText(asleep ? "Weck ihn auf" : "Hallo sagen");
         DesktopLink link = host.link();

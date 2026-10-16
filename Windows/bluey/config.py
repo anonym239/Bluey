@@ -49,6 +49,7 @@ DEFAULTS = {
     "port": DEFAULT_PORT,
     "confirm_actions": False,   # vor jeder Aktion am PC nachfragen
     "phone_mouse": True,        # Maus unten am Rand aufs Handy schieben
+    "welcome_done": False,      # Einstellungsfenster beim allerersten Start zeigen
 }
 
 

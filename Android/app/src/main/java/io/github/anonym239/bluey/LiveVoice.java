@@ -93,7 +93,14 @@ final class LiveVoice {
     }
 
     /** Lautstärke seines Zwitscherns gerade, 0…1. */
-    double level() { return chirp.level(); }
+    double level() {
+        // Liest die Android-Stimme gerade vor, bewegt er den Mund dazu.
+        if (speakingReply && speech.speaking()) {
+            double t = FaceView.now();
+            return Math.max(chirp.level(), .35 + .3 * Math.sin(t * 17) * Math.sin(t * 5.3));
+        }
+        return chirp.level();
+    }
 
     boolean phoneSession() { return phoneSession; }
     /** True, wenn die KI dieser Sitzung auf dem PC läuft (dann zeigt der PC die Sprechblasen selbst). */

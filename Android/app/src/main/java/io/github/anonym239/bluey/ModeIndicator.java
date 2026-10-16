@@ -49,11 +49,11 @@ final class ModeIndicator extends View {
     private Look look() {
         switch (state) {
             case WAKING: return new Look(0xFFFFD66B, "Wacht auf", Icons.Kind.SUN, 6, 1.6);
-            case LISTENING: return new Look(BLUE, "Hört zu · halten zum Fragen", Icons.Kind.EAR, 10, 0);
+            case LISTENING: return null;  // ruhig zuhören: nichts anzeigen
             case ASKING: return new Look(BLUE, "Ganz Ohr", Icons.Kind.MIC, 16, 1.2);
             case THINKING: return new Look(0xFFC79BFF, "Denkt nach", Icons.Kind.SPARKLES, 8, 1.1);
             case SPEAKING: return new Look(0xFFFF9AD0, "Antwortet", Icons.Kind.BUBBLE, 8, 0);
-            default: return new Look(Palette.INK_SOFT, null, Icons.Kind.EYE, 0, 0);
+            default: return null;  // schläft / Folgemodus: nichts anzeigen
         }
     }
 
@@ -75,6 +75,7 @@ final class ModeIndicator extends View {
     @Override protected void onDraw(Canvas c) {
         float d = getResources().getDisplayMetrics().density;
         Look look = look();
+        if (look == null) return;
         double t = FaceView.now();
         double wave = look.pulse > 0 ? .5 + .5 * Math.sin(t * look.pulse * 2 * Math.PI) : 1;
         float width = look.border * d * .5f;
