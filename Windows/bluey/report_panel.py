@@ -2,8 +2,8 @@
 Klick drauf zum Aufklappen; sie bleibt, bis du auf Minus drückst. Oben rechts auf dem Hauptbildschirm."""
 import sys
 
-from PySide6.QtCore import QRectF, Qt, QTimer, QUrl
-from PySide6.QtGui import QBrush, QColor, QDesktopServices, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QColor, QGuiApplication, QLinearGradient, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from .palette import BERRY2, INK, color

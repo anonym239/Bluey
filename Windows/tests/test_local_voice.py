@@ -7,7 +7,7 @@ from unittest import mock
 
 import numpy as np
 
-from bluey import local_voice, ollama, stt
+from bluey import ollama, stt
 from bluey.local_voice import LocalVoice, Segmenter, parse_text_tool, visible_text
 
 

@@ -1,10 +1,8 @@
 import json
 import os
 import socket
-import threading
 import time
 import unittest
-from unittest import mock
 
 from bluey import meeting_notes, protocol
 from bluey.config import settings

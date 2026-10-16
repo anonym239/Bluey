@@ -97,7 +97,8 @@ class Host:
                     reply({"command": "realtimeToken", "callID": call_id, "text": mint_token()})
                 except TokenError as error:
                     reply({"command": "realtimeToken", "callID": call_id, "text": None})
-                    self.ui.post(lambda: self.show_caption(str(error), 6))
+                    message = str(error)
+                    self.ui.post(lambda: self.show_caption(message, 6))
             threading.Thread(target=work, daemon=True).start()
         elif command == "transcribe":
             threading.Thread(target=self._transcribe, args=(packet, reply), daemon=True).start()

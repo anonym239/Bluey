@@ -56,7 +56,7 @@ def main():
     if "--selftest" in sys.argv:
         selftest()
     _log_to_file()
-    from PySide6.QtCore import QObject, QPointF, QRectF, Qt, QTimer, Signal, Slot
+    from PySide6.QtCore import QObject, QRectF, Qt, QTimer, Signal, Slot
     from PySide6.QtGui import (QAction, QActionGroup, QColor, QCursor, QFontDatabase, QGuiApplication, QIcon,
                                QLinearGradient, QPainter, QPixmap)
     from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QInputDialog, QLabel, QLineEdit, QMenu,
