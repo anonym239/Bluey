@@ -48,6 +48,7 @@ DEFAULTS = {
     "whisper_language": "de",   # de oder auto
     "port": DEFAULT_PORT,
     "confirm_actions": False,   # vor jeder Aktion am PC nachfragen
+    "phone_mouse": True,        # Maus unten am Rand aufs Handy schieben
 }
 
 

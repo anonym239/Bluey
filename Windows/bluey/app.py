@@ -68,6 +68,7 @@ def main():
     from .hotkeys import HotKeys
     from .host import Host
     from .overlay import Overlay
+    from .phone_mouse import PhoneMouse, zone
     from .palette import GRADIENT, INK, color
     from .report_panel import ReportPanel
     from .server import PhoneServer, lan_addresses
@@ -151,6 +152,35 @@ def main():
     host = Host(ui, overlay, reports, broadcast=server.broadcast)
     overlay.on_face = server.send_face
 
+    # Maus aufs Handy: unten am Rand, wo das Handy steht, hinausschieben.
+    phone_mouse = PhoneMouse(server.broadcast)
+    phone_mouse.connected = lambda: bool(server.phone_names)
+
+    def phone_mouse_changed(active):
+        if active:
+            # Den echten Zeiger knapp über dem Rand parken; seine Bewegungen gehen jetzt ans Handy.
+            pos = QCursor.pos() - overlay.geometry().topLeft()
+            park = (pos.x(), overlay.height() - 40)
+            phone_mouse.scale = Display.scale
+            phone_mouse.anchor = Display.to_physical(park)
+            computer.warp(phone_mouse.anchor)
+            overlay.phone_mouse_label = (park[0], overlay.height() - 76)
+        else:
+            overlay.phone_mouse_label = None
+    phone_mouse.on_change = phone_mouse_changed
+
+    def phone_mouse_frame(t):
+        pos = QCursor.pos() - overlay.geometry().topLeft()
+        bounds = (float(overlay.width()), float(overlay.height()))
+        phone_mouse.check((float(pos.x()), float(pos.y())), bounds, t)
+        phone_mouse.flush()
+        if phone_mouse.near > 0.01 and not phone_mouse.active:
+            left, right = zone(bounds)
+            overlay.door = (left, right, phone_mouse.near)
+        else:
+            overlay.door = None
+    overlay.frame_callbacks.append(phone_mouse_frame)
+
     # Symbol im Infobereich: die kleine Blaubeere mit Augen.
 
     def make_icon(dim=False):
@@ -196,6 +226,8 @@ def main():
             refresh_icon()
             if not names and host.awake:
                 host.set_awake(False)
+            if not names and phone_mouse.active:
+                phone_mouse._leave()
         ui.post(update)
 
     server.on_phones_changed = phones_changed
@@ -318,6 +350,8 @@ def main():
 
     def stop_actions():
         host.stop_actions()
+        if phone_mouse.active:
+            phone_mouse._leave()
 
     def set_setting(name, value):
         setattr(settings, name, value)
@@ -372,6 +406,8 @@ def main():
         add(menu, "Vor jeder Aktion fragen", lambda: set_setting("confirm_actions", not settings.confirm_actions),
             checked=settings.confirm_actions, enabled=settings.computer_control)
         add(menu, "Stopp", stop_actions, shortcut="Strg+Alt+S")
+        add(menu, "Maus aufs Handy (unten am Rand hinausschieben)",
+            lambda: set_setting("phone_mouse", not settings.phone_mouse), checked=settings.phone_mouse)
         menu.addSeparator()
         add(menu, "Hier zeigen", point_here, shortcut="Strg+Alt+P")
         add(menu, "Augen folgen meiner Maus", toggle_follow, checked=settings.follow_mouse, shortcut="Strg+Alt+F")
@@ -438,6 +474,7 @@ def main():
     hotkeys.register("T", overlay.talk_test)
     hotkeys.register("S", stop_actions)  # Strg+Alt+S hält ihn sofort auf
     hotkeys.start()
+    phone_mouse.start_hook(ui.post, lambda point: computer.warp(Display.to_physical(point)))
 
     def on_setting(name):
         if name == "follow_mouse":

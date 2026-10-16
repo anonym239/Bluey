@@ -89,6 +89,8 @@ class Overlay(QWidget):
         self.frame_callbacks = []
         self.on_face = lambda face: None
         self.speech_target = None  # (x, y, w, h): worauf er zeigt, damit die Blase darüber sitzt
+        self.door = None           # (links, rechts, Nähe 0…1): die „Tür“ zum Handy am unteren Rand
+        self.phone_mouse_label = None  # (x, y): Hinweis, solange die Maus auf dem Handy ist
         self._caption = None
         self._speech_size = None
         self._speech_layout = None
@@ -195,6 +197,9 @@ class Overlay(QWidget):
                 area = area.united(self._trail_path.boundingRect())
             if self._string_path is not None:
                 area = area.united(self._string_path.boundingRect().adjusted(-4, -4, 4, 4))
+        if self.door or self.phone_mouse_label or getattr(self, "_door_drawn", False):
+            area = area.united(QRectF(0, self.height() - 80, self.width(), 80))
+            self._door_drawn = bool(self.door or self.phone_mouse_label)
         for effect in self._effects:
             r = effect.params.get("reach", 80)
             area = area.united(QRectF(effect.point[0] - r, effect.point[1] - r, 2 * r, 2 * r))
@@ -541,12 +546,39 @@ class Overlay(QWidget):
             p.setPen(Qt.NoPen)
             p.setBrush(color(BERRY2, self._trail_alpha))
             p.drawPath(self._trail_path)
+        self._paint_door(p, t)
         self._paint_effects(p, t)
         if visible and e.opacity > 0.01:
             self._paint_cursor(p, t)
         self._paint_bubbles(p, t)
         self._paint_speech(p, t)
         p.end()
+
+    def _paint_door(self, p, t):
+        """Ein leuchtender Balken unten am Rand, wo die Maus aufs Handy wechselt."""
+        if self.door and self.door[2] > 0.01:
+            left, right, near = self.door
+            h = self.height()
+            gradient = QLinearGradient(0, h - 26, 0, h)
+            gradient.setColorAt(0, color(BERRY2, 0))
+            gradient.setColorAt(1, color(BERRY1, 0.75 * near))
+            p.setPen(Qt.NoPen)
+            p.setBrush(QBrush(gradient))
+            p.drawRoundedRect(QRectF(left, h - 26, right - left, 30), 14, 14)
+            p.setBrush(color(BERRY1, 0.9 * near))
+            p.drawRoundedRect(QRectF(left + 8, h - 5, right - left - 16, 5), 2.5, 2.5)
+        if self.phone_mouse_label:
+            x, y = self.phone_mouse_label
+            text = "Maus ist auf dem Handy · nach oben schieben zum Zurückkehren"
+            font = display_font(15)
+            w = QFontMetricsF(font).horizontalAdvance(text) + 28
+            rect = QRectF(min(max(x - w / 2, 8), self.width() - w - 8), y, w, 30)
+            p.setPen(QPen(color(BERRY2, 0.9), 2))
+            p.setBrush(color(INK, 0.88))
+            p.drawRoundedRect(rect, 15, 15)
+            p.setFont(font)
+            p.setPen(QColor("white"))
+            p.drawText(rect, Qt.AlignCenter, text)
 
     def _paint_cursor(self, p, t):
         e = self.engine

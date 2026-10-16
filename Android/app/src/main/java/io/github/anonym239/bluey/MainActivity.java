@@ -49,6 +49,7 @@ public final class MainActivity extends Activity {
     private SoundPanel sound;
     private View pairing;
     private BlueyAppView app;
+    private MousePointer pointer;
     private boolean showPairing = true, holdingToAsk, started;
     private final Runnable holdStart = this::beginHold;
     private boolean wasConnected;
@@ -71,6 +72,7 @@ public final class MainActivity extends Activity {
                     case "wake": if (hasMic()) voice.wake(); else askMic(); break;
                     case "sleep": voice.sleep(); break;
                     case "voiceEvent": voice.handleLocal(Json.parse(Json.str(packet, "text"))); break;
+                    case "pointer": pointer.handle(Json.parse(Json.str(packet, "text"))); break;
                     default: break;
                 }
             }
@@ -148,6 +150,18 @@ public final class MainActivity extends Activity {
         });
         app.setVisibility(View.GONE);
         root.addView(app, new FrameLayout.LayoutParams(-1, -1));
+
+        // Die PC-Maus auf dem Handy (unten am PC-Bildschirm hinausschieben). Seine Augen folgen ihr.
+        pointer = new MousePointer(this, root, (x, y, visible) -> {
+            if (visible && app.getVisibility() != View.VISIBLE) {
+                double[] gaze = face.gazeFor(x, y);
+                face.animator.touchX = gaze[0];
+                face.animator.touchY = gaze[1];
+            } else {
+                face.animator.touchX = face.animator.touchY = null;
+            }
+        });
+        root.addView(pointer, new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
         hideSystemBars();
 
@@ -300,6 +314,7 @@ public final class MainActivity extends Activity {
             store.resyncRecent();
             voice.desktopReconnected();
         }
+        if (!connected && pointer != null && pointer.isVisible()) pointer.handle(Json.obj("state", "leave", "x", .5, "y", .5));
         wasConnected = connected;
         sound.refresh();
         if (app.getVisibility() == View.VISIBLE) app.refresh();

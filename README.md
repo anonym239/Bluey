@@ -55,6 +55,13 @@ Die Spracherkennung läuft ebenfalls lokal mit **Whisper** (faster-whisper). Das
 - Oben rechts: der Knopf mit den vier Kästchen öffnet **Blueys App** mit Sitzungen, Transkripten und Einstellungen. Der Lautsprecher-Knopf regelt die Zwitscher-Lautstärke und die Wahl des PCs.
 - Der Rahmen zeigt den Modus: **blau** heißt „hört zu“, **dicker blau** „ganz Ohr“ (beim Halten), **lila** „denkt nach“, **rosa** „antwortet“.
 
+**Mit der PC-Maus statt mit dem Finger:**
+
+- Schieb die Maus am PC **unten aus dem Bildschirm**, genau dort, wo das Handy steht. Dort leuchtet ein Balken auf. Dann wandert der Mauszeiger aufs Handy, als kleiner Beeren-Zeiger, und Blueys Augen folgen ihm.
+- **Klick** heißt Tippen, **Doppelklick** heißt Aufwecken oder Schlafen, **linke Taste gedrückt halten** heißt Fragen, **Loslassen** heißt Antwort. Auch die Knöpfe auf dem Handy lassen sich so anklicken.
+- **Zurück zum PC:** die Maus oben aus dem Handy hinausschieben (oder Strg+Alt+S). Solange die Maus auf dem Handy ist, klickt am PC nichts aus Versehen.
+- An- und abschalten lässt sich das im Tray-Menü unter **Maus aufs Handy**. Wo das Handy steht (links, Mitte, rechts), stellst du unter **Handy steht unter** ein.
+
 **Am PC (Tastenkürzel):**
 
 | Tasten | Was passiert |
