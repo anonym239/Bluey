@@ -19,7 +19,7 @@ public class SessionTest {
         return s;
     }
 
-    @Test public void properTranscriptReplacesRoughLinesBeforeIt() {
+    @Test public void properTranscriptReplacesRoughLinesBeforeIt() throws Exception {
         BlueySession s = sample();
         StringBuilder texts = new StringBuilder();
         for (BlueySession.Entry e : s.displayEntries()) texts.append(e.text).append('|');
@@ -28,7 +28,7 @@ public class SessionTest {
         assertEquals("Was ist das?", s.summary());
     }
 
-    @Test public void roundTripsThroughJson() {
+    @Test public void roundTripsThroughJson() throws Exception {
         BlueySession s = sample();
         s.ended = 2000.0;
         s.notesPath = "C:\\Notizen";
@@ -42,7 +42,7 @@ public class SessionTest {
         assertEquals("C:\\Notizen", copy.notesPath);
     }
 
-    @Test public void notesJsonHasTheFieldsTheDesktopReads() {
+    @Test public void notesJsonHasTheFieldsTheDesktopReads() throws Exception {
         JSONObject json = sample().notesJson();
         assertTrue(json.has("id"));
         assertEquals(1000, json.getDouble("started"), 0);
@@ -50,7 +50,7 @@ public class SessionTest {
         assertEquals("A", json.getJSONArray("entries").getJSONObject(0).getString("speaker"));
     }
 
-    @Test public void durations() {
+    @Test public void durations() throws Exception {
         assertEquals("1:05", BlueySession.formatDuration(65));
         assertEquals("1:01:01", BlueySession.formatDuration(3661));
     }

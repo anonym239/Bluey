@@ -7,7 +7,7 @@ import java.util.List;
 import org.junit.Test;
 
 public class ProtocolTest {
-    @Test public void framerSplitsLinesAcrossReads() {
+    @Test public void framerSplitsLinesAcrossReads() throws Exception {
         PacketFramer framer = new PacketFramer();
         byte[] first = "{\"hello\":\"PC\"}\n{\"face\":".getBytes(StandardCharsets.UTF_8);
         byte[] second = "{\"gazeX\":0.5}}\n".getBytes(StandardCharsets.UTF_8);
@@ -18,7 +18,7 @@ public class ProtocolTest {
         assertEquals("{\"face\":{\"gazeX\":0.5}}", b.get(0));
     }
 
-    @Test public void framerKeepsMultibyteCharactersWhole() {
+    @Test public void framerKeepsMultibyteCharactersWhole() throws Exception {
         PacketFramer framer = new PacketFramer();
         byte[] bytes = "{\"text\":\"Grüße 🫐\"}\n".getBytes(StandardCharsets.UTF_8);
         StringBuilder out = new StringBuilder();
@@ -27,19 +27,19 @@ public class ProtocolTest {
     }
 
     @Test(expected = IllegalArgumentException.class)
-    public void framerRejectsHugeLines() {
+    public void framerRejectsHugeLines() throws Exception {
         PacketFramer framer = new PacketFramer(10);
         byte[] bytes = "01234567890123".getBytes(StandardCharsets.UTF_8);
         framer.feed(bytes, bytes.length);
     }
 
-    @Test public void moodsMatchTheWireNames() {
+    @Test public void moodsMatchTheWireNames() throws Exception {
         assertEquals(Mood.POINTING, Mood.from("pointing"));
         assertEquals(Mood.LISTENING, Mood.from("unknown"));
         assertEquals("sleepy", Mood.SLEEPY.wire());
     }
 
-    @Test public void jsonNullsReadAsNull() {
+    @Test public void jsonNullsReadAsNull() throws Exception {
         assertNull(Json.str(Json.parse("{\"text\":null}"), "text"));
         assertEquals("x", Json.str(Json.parse("{\"text\":\"x\"}"), "text"));
     }
